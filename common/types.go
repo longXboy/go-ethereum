@@ -151,20 +151,31 @@ func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 
 // Scan implements Scanner for database/sql.
 func (h *Hash) Scan(src interface{}) error {
-	srcB, ok := src.([]byte)
-	if !ok {
+	switch srcB := src.(type) {
+	case nil:
+		return nil
+	case string:
+		if !IsHexHash(srcB) {
+			return fmt.Errorf("can't scan invalid hex string of %s", srcB)
+		}
+		hash := HexToHash(srcB)
+		*h = hash
+	case []byte:
+		if !IsHexHash(string(srcB)) {
+			return fmt.Errorf("can't scan invalid hex string of %s", srcB)
+		}
+		hash := HexToHash(string(srcB))
+		*h = hash
+	default:
 		return fmt.Errorf("can't scan %T into Hash", src)
 	}
-	if len(srcB) != HashLength {
-		return fmt.Errorf("can't scan []byte of len %d into Hash, want %d", len(srcB), HashLength)
-	}
-	copy(h[:], srcB)
+
 	return nil
 }
 
 // Value implements valuer for database/sql.
 func (h Hash) Value() (driver.Value, error) {
-	return h[:], nil
+	return h.String(), nil
 }
 
 // ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
@@ -223,6 +234,15 @@ func IsHexAddress(s string) bool {
 		s = s[2:]
 	}
 	return len(s) == 2*AddressLength && isHex(s)
+}
+
+// IsHexHash verifies whether a string can represent a valid hex-encoded
+// hash or not.
+func IsHexHash(s string) bool {
+	if has0xPrefix(s) {
+		s = s[2:]
+	}
+	return len(s) == 2*HashLength && isHex(s)
 }
 
 // Bytes gets the string representation of the underlying address.
@@ -323,20 +343,30 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 
 // Scan implements Scanner for database/sql.
 func (a *Address) Scan(src interface{}) error {
-	srcB, ok := src.([]byte)
-	if !ok {
+	switch srcB := src.(type) {
+	case nil:
+		return nil
+	case string:
+		if !IsHexAddress(srcB) {
+			return fmt.Errorf("can't scan invalid hex string of %s", srcB)
+		}
+		address := HexToAddress(srcB)
+		*a = address
+	case []byte:
+		if !IsHexAddress(string(srcB)) {
+			return fmt.Errorf("can't scan invalid hex string of %s", srcB)
+		}
+		address := HexToAddress(string(srcB))
+		*a = address
+	default:
 		return fmt.Errorf("can't scan %T into Address", src)
 	}
-	if len(srcB) != AddressLength {
-		return fmt.Errorf("can't scan []byte of len %d into Address, want %d", len(srcB), AddressLength)
-	}
-	copy(a[:], srcB)
 	return nil
 }
 
 // Value implements valuer for database/sql.
 func (a Address) Value() (driver.Value, error) {
-	return a[:], nil
+	return a.String(), nil
 }
 
 // ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
